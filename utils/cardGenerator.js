@@ -29,20 +29,32 @@ async function generateRegistrationCard(regData) {
     ctx.font = "bold 42px Arial";
     ctx.fillText(regData.name, 60, 120);
 
-    // Organization - Truncate to prevent overlap with QR
+    // Organization - Word Wrap to prevent overlap with QR
     ctx.font = "28px Arial";
     let orgText = regData.organization || regData.college || "TGSDC";
-    // Measure text width and truncate if needed (max 400px to avoid QR overlap)
+
     const maxOrgWidth = 400;
-    let orgWidth = ctx.measureText(orgText).width;
-    while (orgWidth > maxOrgWidth && orgText.length > 3) {
-        orgText = orgText.substring(0, orgText.length - 1);
-        orgWidth = ctx.measureText(orgText + "...").width;
+    const lineHeight = 35;
+    let x = 60;
+    let y = 180;
+
+    const words = orgText.split(' ');
+    let line = '';
+
+    for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        const testWidth = metrics.width;
+
+        if (testWidth > maxOrgWidth && n > 0) {
+            ctx.fillText(line, x, y);
+            line = words[n] + ' ';
+            y += lineHeight;
+        } else {
+            line = testLine;
+        }
     }
-    if (orgWidth > maxOrgWidth) {
-        orgText = orgText + "...";
-    }
-    ctx.fillText(orgText, 60, 180);
+    ctx.fillText(line, x, y);
 
     // Registration ID Label
     ctx.font = "24px Arial";
