@@ -1,0 +1,32 @@
+const express = require("express");
+const router = express.Router();
+const razorpay = require("../config/razorpay");
+
+router.post("/create-order", async (req, res) => {
+    try {
+        const { amount, reg_id } = req.body;
+
+        const options = {
+            amount: amount * 100, // convert to paise
+            currency: "INR",
+            receipt: reg_id
+        };
+
+        const order = await razorpay.orders.create(options);
+
+        // LINK ORDER ID TO REGISTRATION (CRITICAL FOR DUPLICATE REG_IDs)
+        // We find the 'Pending' TEMP registration for this ID
+        await require("../models/TempRegistration").findOneAndUpdate(
+            { reg_id: reg_id, payment_status: "Pending" },
+            { razorpay_order_id: order.id },
+            { sort: { createdAt: -1 } }
+        );
+
+        res.json({ success: true, order });
+    } catch (error) {
+        console.error("Create Order Error:", error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+module.exports = router;
