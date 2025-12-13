@@ -13,6 +13,9 @@ app.use(bodyParser.urlencoded({ extended: true })); // <-- ADD THIS
 
 // Connect DB
 connectDB();
+app.get("/", (req, res) => {
+  res.send("Backend is working");
+});
 
 // Routes
 app.use("/api", require("./routes/register"));
