@@ -5,31 +5,40 @@ const transporter = nodemailer.createTransport({
     port: 587,
     secure: false,
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user: process.env.EMAIL_USER, // your Gmail
+        pass: process.env.EMAIL_PASS, // App Password
     },
     tls: {
         rejectUnauthorized: false,
     },
-    // Add timeouts to fail faster if blocked
-    connectionTimeout: 10000,
-    greetingTimeout: 5000,
-    socketTimeout: 10000,
+    connectionTimeout: 20000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
+});
+
+// Optional but VERY helpful for debugging
+transporter.verify((error, success) => {
+    if (error) {
+        console.error("SMTP verify failed:", error);
+    } else {
+        console.log("SMTP server is ready to send emails");
+    }
 });
 
 const sendEmail = async (to, subject, html, attachments = []) => {
     try {
         const info = await transporter.sendMail({
-            from: '"Dental Conference" <no-reply@tgsdc.com>',
+            from: `"Dental Conference" <${process.env.EMAIL_USER}>`, // ✅ MUST MATCH
             to,
             subject,
             html,
             attachments,
         });
-        console.log("Email sent: %s", info.messageId);
+
+        console.log("Email sent:", info.messageId);
         return true;
     } catch (error) {
-        console.error("Error sending email: ", error);
+        console.error("Error sending email:", error);
         return false;
     }
 };
