@@ -1,7 +1,7 @@
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
+    host: "bom1plzcpnl503557.prod.bom1.secureserver.net",
     port: 465,
     secure: true, // Use SSL
     auth: {
@@ -16,8 +16,9 @@ const transporter = nodemailer.createTransport({
 
 const sendEmail = async (to, subject, html, attachments = []) => {
     try {
+        console.log(`Sending email via ${transporter.options.host}...`);
         const info = await transporter.sendMail({
-            from: '"Dental Conference" <no-reply@tgsdc.com>',
+            from: `"TGSDC Support" <${process.env.SMTP_USER || process.env.EMAIL_USER}>`, // MUST match auth user for GoDaddy
             to,
             subject,
             html,
