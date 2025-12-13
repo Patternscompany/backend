@@ -62,94 +62,105 @@ router.post("/verify-payment", async (req, res) => {
     await finalReg.save();
 
     // 3. DELETE TEMP
+    // 3. DELETE TEMP
     await TempRegistration.deleteOne({ _id: tempReg._id });
 
-    // 4. Generate Card & Emails
-    // Note: cardGenerator exports the function directly
-    const cardImage = await generateRegistrationCard(finalReg);
-
-    // User Email
-    const userHtml = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #0a6ebd; padding: 20px; text-align: center; color: white;">
-                <h2>10ᵗʰ Telangana State Dental Conference</h2>
-                <p>Entry Ticket</p>
-            </div>
-            <div style="padding: 20px; border: 1px solid #ddd;">
-                <p>Hello <b>${finalReg.name}</b>,</p>
-                
-                <p>Your entry ticket for <b>10ᵗʰ Telangana State Dental Conference 2026</b> is ready for download.</p>
-                
-                <p>The event encompasses the medical, surgical, hospital, and diagnostic sectors, attracting hospital staff, clinic professionals, diagnostic laboratories, medical device suppliers, surgical consumable providers, hospital infrastructure and furniture suppliers, biomedical engineers, and research or training institutes.</p>
-                
-                <p>Click the <b>Download Entry Ticket</b> button below to access your ticket.</p>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="#" style="background-color: #0a6ebd; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">Download Entry Ticket</a>
-                    <p style="margin-top: 10px; font-size: 12px; color: #666;">(Please see the attachment below)</p>
-                </div>
-
-                <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #0a6ebd;">
-                    <h4 style="margin-top: 0;">Event Details:</h4>
-                    <p><b>Dates:</b> 24 - 25 January 2026</p>
-                    <p><b>Venue:</b> Sevalal Banjara Bhavan, Banjara Hills, Hyderabad</p>
-                </div>
-                
-                <p style="margin-top: 20px;">Please keep this ticket handy for entry.</p>
-            </div>
-            <div style="text-align: center; padding: 10px; font-size: 12px; color: #888;">
-                &copy; 2026 TGSDC. All rights reserved.
-            </div>
-        </div>
-    `;
-    await sendEmail(finalReg.email, "Registration Confirmed - TGSDC 2026", userHtml, [
-      {
-        filename: "delegate_card.png",
-        content: cardImage.toString("base64"),
-        encoding: "base64"
-      }
-    ]);
-
-    // Admin Email
-    const doctorHtml = finalReg.title === "Dr." || finalReg.title === "Prof. Dr."
-      ? `<p><b>DCI Reg Number:</b> ${finalReg.dci_reg_number}</p>`
-      : "";
-    const studentHtml = finalReg.study_year
-      ? `<p><b>College:</b> ${finalReg.college}</p><p><b>Year:</b> ${finalReg.study_year}</p>`
-      : "";
-
-    const adminHtml = `
-            <h3>New Paid Registration</h3>
-            <p><b>Name:</b> ${finalReg.title} ${finalReg.name}</p>
-            <p><b>Reg ID:</b> ${finalReg.reg_id}</p>
-            <p><b>Type:</b> ${finalReg.reg_type}</p>
-            <p><b>Mobile:</b> ${finalReg.mobile}</p>
-            <p><b>Email:</b> ${finalReg.email}</p>
-            <p><b>Amount:</b> ₹${finalReg.amount}</p>
-            <p><b>Payment ID:</b> ${razorpay_payment_id}</p>
-            <hr>
-            <h3>Additional Details</h3>
-            ${finalReg.organization ? `<p><b>Organization:</b> ${finalReg.organization}</p>` : ''}
-            ${finalReg.designation ? `<p><b>Designation:</b> ${finalReg.designation}</p>` : ''}
-            ${doctorHtml}
-            ${studentHtml}
-            <p><b>Address:</b> ${finalReg.address}</p>
-            <p><b>State:</b> ${finalReg.state}</p>
-            <p><b>City:</b> ${finalReg.city}</p>
-            <p><b>Pincode:</b> ${finalReg.pincode}</p>
-            ${finalReg.comments ? `<p><b>Comments:</b> ${finalReg.comments}</p>` : ''}
-            <br>
-            <p><em>Please see attached registration card.</em></p>
-        `;
-    await sendEmail(process.env.EMAIL_USER || "pandureddypatterns@gmail.com", "New Registration Alert", adminHtml, [
-      {
-        filename: "registration_card.png",
-        content: cardImage.toString("base64"),
-        encoding: "base64"
-      }
-    ]);
-
+    // SEND RESPONSE IMMEDIATELY to prevent UI hanging
     res.json({ success: true });
+
+    // 4. Generate Card & Emails (BACKGROUND PROCESS)
+    (async () => {
+      try {
+        console.log("Starting background tasks for:", finalReg.reg_id);
+        // Note: cardGenerator exports the function directly
+        const cardImage = await generateRegistrationCard(finalReg);
+
+        // User Email
+        const userHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background-color: #0a6ebd; padding: 20px; text-align: center; color: white;">
+                    <h2>10ᵗʰ Telangana State Dental Conference</h2>
+                    <p>Entry Ticket</p>
+                </div>
+                <div style="padding: 20px; border: 1px solid #ddd;">
+                    <p>Hello <b>${finalReg.name}</b>,</p>
+                    
+                    <p>Your entry ticket for <b>10ᵗʰ Telangana State Dental Conference 2026</b> is ready for download.</p>
+                    
+                    <p>The event encompasses the medical, surgical, hospital, and diagnostic sectors, attracting hospital staff, clinic professionals, diagnostic laboratories, medical device suppliers, surgical consumable providers, hospital infrastructure and furniture suppliers, biomedical engineers, and research or training institutes.</p>
+                    
+                    <p>Click the <b>Download Entry Ticket</b> button below to access your ticket.</p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="#" style="background-color: #0a6ebd; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">Download Entry Ticket</a>
+                        <p style="margin-top: 10px; font-size: 12px; color: #666;">(Please see the attachment below)</p>
+                    </div>
+
+                    <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #0a6ebd;">
+                        <h4 style="margin-top: 0;">Event Details:</h4>
+                        <p><b>Dates:</b> 24 - 25 January 2026</p>
+                        <p><b>Venue:</b> Sevalal Banjara Bhavan, Banjara Hills, Hyderabad</p>
+                    </div>
+                    
+                    <p style="margin-top: 20px;">Please keep this ticket handy for entry.</p>
+                </div>
+                <div style="text-align: center; padding: 10px; font-size: 12px; color: #888;">
+                    &copy; 2026 TGSDC. All rights reserved.
+                </div>
+            </div>
+            `;
+
+        await sendEmail(finalReg.email, "Registration Confirmed - TGSDC 2026", userHtml, [
+          {
+            filename: "delegate_card.png",
+            content: cardImage.toString("base64"),
+            encoding: "base64"
+          }
+        ]);
+
+        // Admin Email
+        const doctorHtml = finalReg.title === "Dr." || finalReg.title === "Prof. Dr."
+          ? `<p><b>DCI Reg Number:</b> ${finalReg.dci_reg_number}</p>`
+          : "";
+        const studentHtml = finalReg.study_year
+          ? `<p><b>College:</b> ${finalReg.college}</p><p><b>Year:</b> ${finalReg.study_year}</p>`
+          : "";
+
+        const adminHtml = `
+                    <h3>New Paid Registration</h3>
+                    <p><b>Name:</b> ${finalReg.title} ${finalReg.name}</p>
+                    <p><b>Reg ID:</b> ${finalReg.reg_id}</p>
+                    <p><b>Type:</b> ${finalReg.reg_type}</p>
+                    <p><b>Mobile:</b> ${finalReg.mobile}</p>
+                    <p><b>Email:</b> ${finalReg.email}</p>
+                    <p><b>Amount:</b> ₹${finalReg.amount}</p>
+                    <p><b>Payment ID:</b> ${razorpay_payment_id}</p>
+                    <hr>
+                    <h3>Additional Details</h3>
+                    ${finalReg.organization ? `<p><b>Organization:</b> ${finalReg.organization}</p>` : ''}
+                    ${finalReg.designation ? `<p><b>Designation:</b> ${finalReg.designation}</p>` : ''}
+                    ${doctorHtml}
+                    ${studentHtml}
+                    <p><b>Address:</b> ${finalReg.address}</p>
+                    <p><b>State:</b> ${finalReg.state}</p>
+                    <p><b>City:</b> ${finalReg.city}</p>
+                    <p><b>Pincode:</b> ${finalReg.pincode}</p>
+                    ${finalReg.comments ? `<p><b>Comments:</b> ${finalReg.comments}</p>` : ''}
+                    <br>
+                    <p><em>Please see attached registration card.</em></p>
+                `;
+        await sendEmail(process.env.EMAIL_USER || "pandureddypatterns@gmail.com", "New Registration Alert", adminHtml, [
+          {
+            filename: "registration_card.png",
+            content: cardImage.toString("base64"),
+            encoding: "base64"
+          }
+        ]);
+        console.log("Emails sent successfully for:", finalReg.reg_id);
+      } catch (bkError) {
+        console.error("Background Task Error (Emails/Card):", bkError);
+      }
+    })();
   } catch (err) {
     console.error(err);
     res.json({ success: false, error: err.message });
