@@ -71,9 +71,13 @@ router.post("/verify-payment", async (req, res) => {
     // 4. Generate Card & Emails (BACKGROUND PROCESS)
     (async () => {
       try {
-        console.log("Starting background tasks for:", finalReg.reg_id);
+        console.log("Starting background tasks for Reg ID:", finalReg.reg_id);
+        console.log("Using Email User:", process.env.EMAIL_USER ? "SET" : "NOT SET");
+
         // Note: cardGenerator exports the function directly
+        console.log("Generating Registration Card...");
         const cardImage = await generateRegistrationCard(finalReg);
+        console.log("Card generated successfully.");
 
         // User Email
         const userHtml = `
@@ -110,13 +114,16 @@ router.post("/verify-payment", async (req, res) => {
             </div>
             `;
 
-        await sendEmail(finalReg.email, "Registration Confirmed - TGSDC 2026", userHtml, [
+        console.log("Sending User Email to:", finalReg.email);
+        const userEmailSent = await sendEmail(finalReg.email, "Registration Confirmed - TGSDC 2026", userHtml, [
           {
             filename: "delegate_card.png",
             content: cardImage.toString("base64"),
             encoding: "base64"
           }
         ]);
+        if (userEmailSent) console.log("User Email sent successfully.");
+        else console.error("FAILED to send User Email.");
 
         // Admin Email
         const doctorHtml = finalReg.title === "Dr." || finalReg.title === "Prof. Dr."
@@ -149,14 +156,23 @@ router.post("/verify-payment", async (req, res) => {
                     <br>
                     <p><em>Please see attached registration card.</em></p>
                 `;
-        await sendEmail(process.env.EMAIL_USER || "pandureddypatterns@gmail.com", "New Registration Alert", adminHtml, [
+        console.log("Sending Admin Email...");
+        const adminEmailSent = await sendEmail(process.env.EMAIL_USER || "pandureddypatterns@gmail.com", "New Registration Alert", adminHtml, [
           {
             filename: "registration_card.png",
             content: cardImage.toString("base64"),
             encoding: "base64"
           }
         ]);
-        console.log("Emails sent successfully for:", finalReg.reg_id);
+
+        if (adminEmailSent) console.log("Admin Email sent successfully.");
+        else console.error("FAILED to send Admin Email.");
+
+        if (userEmailSent && adminEmailSent) {
+          console.log("All emails sent successfully for:", finalReg.reg_id);
+        } else {
+          console.warn("Some emails failed to send for:", finalReg.reg_id);
+        }
       } catch (bkError) {
         console.error("Background Task Error (Emails/Card):", bkError);
       }
