@@ -66,6 +66,11 @@ async function generateRegistrationCard(regData) {
     ctx.fillStyle = "#c41e3a";
     ctx.fillText(regData.reg_id, 60, 300);
 
+    // Payment Status - Paid
+    ctx.font = "bold 28px Arial";
+    ctx.fillStyle = "#28a745"; // Success Green
+    ctx.fillText("Payment Status: Paid", 60, 360);
+
     // Generate QR Code with Status and Amount
     // Generate QR Code with Status and Amount
     const qrCodeData = `Name: ${regData.name}\nReg ID: ${regData.reg_id}\nOrg/College: ${regData.organization || regData.college || 'TGSDC'}\nStatus: ${regData.status || 'Paid'}`;

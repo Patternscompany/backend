@@ -148,10 +148,10 @@ router.post("/verify-payment", async (req, res) => {
                     ${finalReg.designation ? `<p><b>Designation:</b> ${finalReg.designation}</p>` : ''}
                     ${doctorHtml}
                     ${studentHtml}
-                    <p><b>Address:</b> ${finalReg.address}</p>
-                    <p><b>State:</b> ${finalReg.state}</p>
-                    <p><b>City:</b> ${finalReg.city}</p>
-                    <p><b>Pincode:</b> ${finalReg.pincode}</p>
+                    ${finalReg.address ? `<p><b>Address:</b> ${finalReg.address}</p>` : ''}
+                    ${finalReg.state ? `<p><b>State:</b> ${finalReg.state}</p>` : ''}
+                    ${finalReg.city ? `<p><b>City:</b> ${finalReg.city}</p>` : ''}
+                    ${finalReg.pincode ? `<p><b>Pincode:</b> ${finalReg.pincode}</p>` : ''}
                     ${finalReg.comments ? `<p><b>Comments:</b> ${finalReg.comments}</p>` : ''}
                     <br>
                     <p><em>Please see attached registration card.</em></p>
