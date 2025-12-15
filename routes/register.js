@@ -91,7 +91,7 @@ router.post("/verify-payment", async (req, res) => {
                     
                     <p>Your entry ticket for <b>10ᵗʰ Telangana State Dental Conference 2026</b> is ready for download.</p>
                     
-                    <p>The event encompasses the medical, surgical, hospital, and diagnostic sectors, attracting hospital staff, clinic professionals, diagnostic laboratories, medical device suppliers, surgical consumable providers, hospital infrastructure and furniture suppliers, biomedical engineers, and research or training institutes.</p>
+                    <p>This event encompasses the scientific sessions, Trade for practitioners & students, cultural events and Banquet for socialising fellow dentists.</p>
                     
                     <p>Click the <b>Download Entry Ticket</b> button below to access your ticket.</p>
                     
@@ -126,7 +126,7 @@ router.post("/verify-payment", async (req, res) => {
         else console.error("FAILED to send User Email.");
 
         // Admin Email
-        const doctorHtml = finalReg.title === "Dr." || finalReg.title === "Prof. Dr."
+        const doctorHtml = finalReg.dci_reg_number
           ? `<p><b>DCI Reg Number:</b> ${finalReg.dci_reg_number}</p>`
           : "";
         const studentHtml = finalReg.study_year
