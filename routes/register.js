@@ -209,11 +209,11 @@ router.post("/register", async (req, res) => {
     // 1. DUPLICATE CHECK (Check MAIN Registration collection)
     if (reg_type !== "Banquet Pass (Add-on)") {
       // We still check the PERMANENT collection to prevent re-registration
-      const existingUser = await Registration.findOne({ email });
+      const existingUser = await Registration.findOne({ mobile });
       if (existingUser) {
         return res.json({
           success: false,
-          error: "A registration with this Email ID already exists. Please use a different email or check your status."
+          error: "A registration with this Phone Number already exists. Please use a different Phone Number or check your status."
         });
       }
     }
