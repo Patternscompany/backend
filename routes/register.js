@@ -268,14 +268,14 @@ router.post("/register", async (req, res) => {
 // CHECK STATUS FOR BANQUET UPGRADE
 router.post("/check-status", async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email) return res.json({ success: false, error: "Email is required" });
+    const { mobile } = req.body;
+    if (!mobile) return res.json({ success: false, error: "Mobile Number is required" });
 
     // Find by email (sort by latest if multiple)
-    const reg = await Registration.findOne({ email }).sort({ _id: -1 });
+    const reg = await Registration.findOne({ mobile }).sort({ _id: -1 });
 
     if (!reg) {
-      return res.json({ success: false, error: "No registration found with this Email ID." });
+      return res.json({ success: false, error: "No registration found with this Mobile Number." });
     }
 
     // Check if eligible (Doctor/RC, not Student)
@@ -285,6 +285,11 @@ router.post("/check-status", async (req, res) => {
     // 1. Check Eligibility (No Students)
     if (lowerType.includes("student")) {
       return res.json({ success: false, error: "Banquet Pass not available for Student categories to upgrade online." });
+    }
+
+    // 2. Check if RC Member (Already Included)
+    if (lowerType.includes("rc member")) {
+      return res.json({ success: false, error: "Banquet is already included in your RC Membership." });
     }
 
     // 2. Check if already has Banquet/Hospitality
