@@ -159,11 +159,12 @@ router.post("/verify-payment", async (req, res) => {
         console.log("Sending Admin Email...");
         const adminEmailSent = await sendEmail(process.env.EMAIL_USER || "pandureddypatterns@gmail.com", "New Registration Alert", adminHtml, [
           {
-            filename: "registration_card.png",
+            filename: "delegate_card.png",
             content: cardImage.toString("base64"),
             encoding: "base64"
           }
         ]);
+
 
         if (adminEmailSent) console.log("Admin Email sent successfully.");
         else console.error("FAILED to send Admin Email.");

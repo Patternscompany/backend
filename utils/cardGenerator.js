@@ -7,6 +7,7 @@ const QRCode = require("qrcode");
  * @param {string} regData.name - Full name
  * @param {string} regData.organization - Organization/College name  
  * @param {string} regData.reg_id - Registration ID
+ * @param {string} regData.reg_type - Registration ID
  * @returns {Promise<Buffer>} - PNG image buffer
  */
 async function generateRegistrationCard(regData) {
@@ -27,39 +28,16 @@ async function generateRegistrationCard(regData) {
     // Name
     ctx.fillStyle = "#000";
     ctx.font = "bold 42px Arial";
-    ctx.fillText(regData.name, 60, 120);
+    // Add Title to Name
+    const fullName = regData.title ? `${regData.title}. ${regData.name}` : regData.name;
+    ctx.fillText(fullName, 60, 120);
 
-    // Organization - Word Wrap to prevent overlap with QR
-    ctx.font = "28px Arial";
-    let orgText = regData.organization || regData.college || "TGSDC";
-
-    const maxOrgWidth = 400;
-    const lineHeight = 35;
-    let x = 60;
-    let y = 180;
-
-    const words = orgText.split(' ');
-    let line = '';
-
-    for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
-        const metrics = ctx.measureText(testLine);
-        const testWidth = metrics.width;
-
-        if (testWidth > maxOrgWidth && n > 0) {
-            ctx.fillText(line, x, y);
-            line = words[n] + ' ';
-            y += lineHeight;
-        } else {
-            line = testLine;
-        }
-    }
-    ctx.fillText(line, x, y);
+    // Organization (Hidden as per request)
+    // ctx.font = "28px Arial";
 
     // Registration ID Label
     ctx.font = "24px Arial";
     ctx.fillStyle = "#555";
-    ctx.fillText("REGISTRATION ID", 60, 250);
 
     // Registration ID Value
     ctx.font = "bold 36px Arial";
@@ -73,7 +51,8 @@ async function generateRegistrationCard(regData) {
 
     // Generate QR Code with Status and Amount
     // Generate QR Code with Status and Amount
-    const qrCodeData = `Name: ${regData.name}\nReg ID: ${regData.reg_id}\nOrg/College: ${regData.organization || regData.college || 'TGSDC'}\nStatus: ${regData.status || 'Paid'}`;
+    // Generate QR Code with Status and Amount
+    const qrCodeData = `Name: ${fullName}\nReg Type: ${regData.reg_type}\nReg ID: ${regData.reg_id}\nStatus: ${regData.status || 'Paid'}`;
     const qrCodeDataURL = await QRCode.toDataURL(qrCodeData, { width: 250, margin: 1 });
 
     // Load and draw QR code (convert base64 to image)

@@ -14,6 +14,19 @@ const transporter = nodemailer.createTransport({
     connectionTimeout: 20000,
     greetingTimeout: 10000,
     socketTimeout: 20000,
+    host: "smtpout.secureserver.net",
+    port: 587,
+    secure: false,
+    auth: {
+        user: "info@yourdomain.com",   // GoDaddy mailbox
+        pass: "MAILBOX_PASSWORD",      // Webmail password
+    },
+    tls: {
+        rejectUnauthorized: false,
+    },
+    connectionTimeout: 20000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
 });
 
 // Optional but VERY helpful for debugging
