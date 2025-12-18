@@ -38,6 +38,7 @@ async function generateRegistrationCard(regData) {
     // Registration ID Label
     ctx.font = "24px Arial";
     ctx.fillStyle = "#555";
+    ctx.fillText("REGISTRATION ID", 60, 260);
 
     // Registration ID Value
     ctx.font = "bold 36px Arial";
