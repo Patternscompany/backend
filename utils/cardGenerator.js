@@ -30,7 +30,30 @@ async function generateRegistrationCard(regData) {
     ctx.font = "bold 42px Arial";
     // Add Title to Name
     const fullName = regData.title ? `${regData.title}. ${regData.name}` : regData.name;
-    ctx.fillText(fullName, 60, 120);
+
+    // Text Wrapping for Name
+    const maxNameWidth = 420;
+    const lineHeight = 50;
+    let x = 60;
+    let y = 120;
+
+    const words = fullName.split(' ');
+    let line = '';
+
+    for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        const testWidth = metrics.width;
+
+        if (testWidth > maxNameWidth && n > 0) {
+            ctx.fillText(line, x, y);
+            line = words[n] + ' ';
+            y += lineHeight;
+        } else {
+            line = testLine;
+        }
+    }
+    ctx.fillText(line, x, y);
 
     // Organization (Hidden as per request)
     // ctx.font = "28px Arial";
