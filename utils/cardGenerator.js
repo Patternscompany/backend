@@ -27,7 +27,7 @@ async function generateRegistrationCard(regData) {
 
     // Name
     ctx.fillStyle = "#000";
-    ctx.font = "bold 42px Arial";
+    ctx.font = "bold 32px Arial";
     // Add Title to Name
     const fullName = regData.title ? `${regData.title}. ${regData.name}` : regData.name;
 
@@ -55,21 +55,26 @@ async function generateRegistrationCard(regData) {
     }
     ctx.fillText(line, x, y);
 
+    // 10th TGSDC Label
+    ctx.font = "bold 24px Arial";
+    ctx.fillStyle = "#f9af47";
+    ctx.fillText("10th - TGSDC", x, y + 40);
+
     // Organization (Hidden as per request)
     // ctx.font = "28px Arial";
 
     // Registration ID Label
-    ctx.font = "24px Arial";
+    ctx.font = "14px Arial";
     ctx.fillStyle = "#555";
     ctx.fillText("REGISTRATION ID", 60, 260);
 
     // Registration ID Value
-    ctx.font = "bold 36px Arial";
+    ctx.font = "bold 26px Arial";
     ctx.fillStyle = "#c41e3a";
     ctx.fillText(regData.reg_id, 60, 300);
 
     // Payment Status - Paid
-    ctx.font = "bold 28px Arial";
+    ctx.font = "bold 20px Arial";
     ctx.fillStyle = "#28a745"; // Success Green
     ctx.fillText("Payment Status: Paid", 60, 360);
 
