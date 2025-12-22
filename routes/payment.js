@@ -16,11 +16,17 @@ router.post("/create-order", async (req, res) => {
 
         // LINK ORDER ID TO REGISTRATION (CRITICAL FOR DUPLICATE REG_IDs)
         // We find the 'Pending' TEMP registration for this ID
-        await require("../models/TempRegistration").findOneAndUpdate(
-            { reg_id: reg_id, payment_status: "Pending" },
-            { razorpay_order_id: order.id },
-            { sort: { createdAt: -1 } }
+        // LINK ORDER ID TO REGISTRATION (CRITICAL FOR DUPLICATE REG_IDs)
+        const updatedReg = await require("../models/TempRegistration").findOneAndUpdate(
+            { reg_id: reg_id },
+            { razorpay_order_id: order.id, payment_status: "Pending" },
+            { new: true, sort: { createdAt: -1 } }
         );
+
+        if (!updatedReg) {
+            throw new Error("Registration session not found. Please register again.");
+        }
+        console.log(`Order ${order.id} linked to Reg ID ${reg_id}`);
 
         res.json({ success: true, order });
     } catch (error) {

@@ -17,10 +17,23 @@ router.get("/get-razorpay-key", (req, res) => {
 
 router.post("/verify-payment", async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, reg_id } = req.body;
 
     // 1. Find the TEMP Registration
-    const tempReg = await TempRegistration.findOne({ razorpay_order_id });
+    let tempReg = await TempRegistration.findOne({ razorpay_order_id });
+
+    // FALLBACK: If not found by Order ID, try finding by Reg ID (Self-Healing)
+    if (!tempReg && reg_id) {
+      console.warn(`Order ID ${razorpay_order_id} not found in DB. Trying Reg ID ${reg_id}...`);
+      tempReg = await TempRegistration.findOne({ reg_id });
+
+      // If found, update it with the missing Order ID so we can proceed
+      if (tempReg) {
+        tempReg.razorpay_order_id = razorpay_order_id;
+        await tempReg.save();
+        console.log("Self-Healed: Linked Order ID to Registration.");
+      }
+    }
 
     if (!tempReg) {
       // Fallback: Check if it's already in Main
