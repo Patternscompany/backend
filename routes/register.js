@@ -243,7 +243,31 @@ router.post("/register", async (req, res) => {
     }
 
     // GENERATE ID OR USE EXISTING
-    const newRegId = existing_reg_id || ("REG" + Date.now());
+    let prefix = "REG";
+    const typeUpper = reg_type.toUpperCase();
+
+    if (typeUpper.includes("RC MEMBER")) {
+      prefix = "RC";
+    }
+    else if (typeUpper.includes("DELEGATE")) {
+      const hasLunch = typeUpper.includes("WITH LUNCH");
+      const hasBanquet = typeUpper.includes("BANQUET");
+
+      if (hasLunch && hasBanquet) prefix = "DLB";
+      else if (hasBanquet) prefix = "DB";
+      else if (hasLunch) prefix = "DL";
+      else prefix = "D";
+    }
+    else if (typeUpper.includes("STUDENT") || typeUpper.includes("INTERN") || typeUpper.includes("PG STUDENT")) {
+      const hasLunch = typeUpper.includes("WITH LUNCH");
+      if (hasLunch) prefix = "SL";
+      else prefix = "S";
+    }
+    else if (typeUpper.includes("BANQUET")) {
+      prefix = "BAN"; // Standalone Banquet
+    }
+
+    const newRegId = existing_reg_id || (prefix + Date.now());
 
     // SAVE TO TEMP REGISTRATION
     const reg = new TempRegistration({
