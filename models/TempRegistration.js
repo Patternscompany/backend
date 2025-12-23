@@ -31,7 +31,7 @@ const TempRegSchema = new mongoose.Schema({
     razorpay_order_id: String,
 
     // TTL Index: Auto-delete after 24 hours if not paid
-    createdAt: { type: Date, default: Date.now, expires: 86400 }
+    createdAt: { type: Date, default: Date.now }
 });
 
 module.exports = mongoose.model("TempRegistration", TempRegSchema);
