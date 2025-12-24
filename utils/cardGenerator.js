@@ -27,7 +27,7 @@ async function generateRegistrationCard(regData) {
 
     // Name
     ctx.fillStyle = "#000";
-    ctx.font = "bold 32px Arial";
+    ctx.font = "bold 24px Arial";
     // Add Title to Name
     const fullName = regData.title ? `${regData.title}. ${regData.name}` : regData.name;
 
@@ -69,7 +69,7 @@ async function generateRegistrationCard(regData) {
     ctx.fillText("REGISTRATION ID", 60, 260);
 
     // Registration ID Value
-    ctx.font = "bold 26px Arial";
+    ctx.font = "bold 20px Arial";
     ctx.fillStyle = "#c41e3a";
     ctx.fillText(regData.reg_id, 60, 300);
 
