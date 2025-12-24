@@ -1,14 +1,13 @@
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST, // cPanel usually mail.domain.com
-    port: parseInt(process.env.SMTP_PORT), // 465 for SSL, 587 for TLS
-    secure: true, // true for 465, false for other ports
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false,
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user: process.env.EMAIL_USER, // your Gmail
+        pass: process.env.EMAIL_PASS, // App Password
     },
-    // cPanel often requires this if certs are self-signed, but try true first for production
     tls: {
         rejectUnauthorized: false,
     },
@@ -29,7 +28,7 @@ transporter.verify((error, success) => {
 const sendEmail = async (to, subject, html, attachments = []) => {
     try {
         const info = await transporter.sendMail({
-            from: `"10th Telangana State Dental Conference" <${process.env.EMAIL_USER}>`, // ✅ MUST MATCH
+            from: `"Dental Conference" <${process.env.EMAIL_USER}>`, // ✅ MUST MATCH
             to,
             subject,
             html,
