@@ -28,7 +28,7 @@ transporter.verify((error, success) => {
 const sendEmail = async (to, subject, html, attachments = []) => {
     try {
         const info = await transporter.sendMail({
-            from: `"Dental Conference" <${process.env.EMAIL_USER}>`, // ✅ MUST MATCH
+            from: `"10ᵗʰ Telangana State Dental Conference" <${process.env.EMAIL_USER}>`, // ✅ MUST MATCH
             to,
             subject,
             html,
