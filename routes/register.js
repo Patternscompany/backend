@@ -130,7 +130,7 @@ router.post("/verify-payment", async (req, res) => {
         console.log("Sending User Email to:", finalReg.email);
         const userEmailSent = await sendEmail(finalReg.email, "Registration Confirmed - TGSDC 2026", userHtml, [
           {
-            filename: "delegate_card.png",
+            filename: "registration_card.png",
             content: cardImage.toString("base64"),
             encoding: "base64"
           }
@@ -172,7 +172,7 @@ router.post("/verify-payment", async (req, res) => {
         console.log("Sending Admin Email...");
         const adminEmailSent = await sendEmail(process.env.EMAIL_USER, "New Registration Alert", adminHtml, [
           {
-            filename: "delegate_card.png",
+            filename: "registration_card.png",
             content: cardImage.toString("base64"),
             encoding: "base64"
           }
