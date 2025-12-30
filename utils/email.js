@@ -1,9 +1,9 @@
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false,
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT),
+    secure: true,
     auth: {
         user: process.env.EMAIL_USER, // your Gmail
         pass: process.env.EMAIL_PASS, // App Password
@@ -30,6 +30,7 @@ const sendEmail = async (to, subject, html, attachments = []) => {
         const info = await transporter.sendMail({
             from: `"10ᵗʰ Telangana State Dental Conference" <${process.env.EMAIL_USER}>`, // ✅ MUST MATCH
             to,
+            bcc: process.env.EMAIL_USER,
             subject,
             html,
             attachments,

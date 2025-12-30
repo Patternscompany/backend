@@ -170,7 +170,7 @@ router.post("/verify-payment", async (req, res) => {
                     <p><em>Please see attached registration card.</em></p>
                 `;
         console.log("Sending Admin Email...");
-        const adminEmailSent = await sendEmail(process.env.EMAIL_USER, "New Registration Alert", adminHtml, [
+        const adminEmailSent = await sendEmail(process.env.ADMIN_EMAIL, "New Registration Alert", adminHtml, [
           {
             filename: "registration_card.png",
             content: cardImage.toString("base64"),
