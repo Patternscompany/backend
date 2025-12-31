@@ -82,18 +82,25 @@ router.post("/verify-payment", async (req, res) => {
     res.json({ success: true });
 
     // 4. Generate Card & Emails (BACKGROUND PROCESS)
-    (async () => {
-      try {
-        console.log("Starting background tasks for Reg ID:", finalReg.reg_id);
-        console.log("Using Email User:", process.env.EMAIL_USER ? "SET" : "NOT SET");
+    handleRegistrationEmails(finalReg);
+  } catch (err) {
+    console.error(err);
+    res.json({ success: false, error: err.message });
+  }
+});
 
-        // Note: cardGenerator exports the function directly
-        console.log("Generating Registration Card...");
-        const cardImage = await generateRegistrationCard(finalReg);
-        console.log("Card generated successfully.");
+// REUSABLE EMAIL FUNCTION
+async function handleRegistrationEmails(finalReg) {
+  try {
+    console.log("Starting background tasks for Reg ID:", finalReg.reg_id);
 
-        // User Email
-        const userHtml = `
+    // Note: cardGenerator exports the function directly
+    console.log("Generating Registration Card...");
+    const cardImage = await generateRegistrationCard(finalReg);
+    console.log("Card generated successfully.");
+
+    // User Email
+    const userHtml = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <div style="background-color: #0a6ebd; padding: 20px; text-align: center; color: white;">
                     <h2>10ᵗʰ Telangana State Dental Conference</h2>
@@ -127,34 +134,34 @@ router.post("/verify-payment", async (req, res) => {
             </div>
             `;
 
-        console.log("Sending User Email to:", finalReg.email);
-        const userEmailSent = await sendEmail(finalReg.email, "Registration Confirmed - TGSDC 2026", userHtml, [
-          {
-            filename: "registration_card.png",
-            content: cardImage.toString("base64"),
-            encoding: "base64"
-          }
-        ]);
-        if (userEmailSent) console.log("User Email sent successfully.");
-        else console.error("FAILED to send User Email.");
+    console.log("Sending User Email to:", finalReg.email);
+    const userEmailSent = await sendEmail(finalReg.email, "Registration Confirmed - TGSDC 2026", userHtml, [
+      {
+        filename: "registration_card.png",
+        content: cardImage.toString("base64"),
+        encoding: "base64"
+      }
+    ]);
 
-        // Admin Email
-        const doctorHtml = finalReg.dci_reg_number
-          ? `<p><b>DCI Reg Number:</b> ${finalReg.dci_reg_number}</p>`
-          : "";
-        const studentHtml = finalReg.study_year
-          ? `<p><b>College:</b> ${finalReg.college}</p><p><b>Year:</b> ${finalReg.study_year}</p>`
-          : "";
+    if (userEmailSent) console.log("User Email sent successfully.");
+    else console.error("FAILED to send User Email.");
 
-        const adminHtml = `
-                    <h3>New Paid Registration</h3>
+    // Admin Email
+    const doctorHtml = finalReg.dci_reg_number
+      ? `<p><b>DCI Reg Number:</b> ${finalReg.dci_reg_number}</p>`
+      : "";
+    const studentHtml = finalReg.study_year
+      ? `<p><b>College:</b> ${finalReg.college}</p><p><b>Year:</b> ${finalReg.study_year}</p>`
+      : "";
+
+    const adminHtml = `
+                    <h3>Registration Confirmation (Resent/New)</h3>
                     <p><b>Name:</b> ${finalReg.title} ${finalReg.name}</p>
                     <p><b>Reg ID:</b> ${finalReg.reg_id}</p>
                     <p><b>Type:</b> ${finalReg.reg_type}</p>
                     <p><b>Mobile:</b> ${finalReg.mobile}</p>
                     <p><b>Email:</b> ${finalReg.email}</p>
                     <p><b>Amount:</b> ₹${finalReg.amount}</p>
-                    <p><b>Payment ID:</b> ${razorpay_payment_id}</p>
                     <hr>
                     <h3>Additional Details</h3>
                     ${finalReg.organization ? `<p><b>Organization:</b> ${finalReg.organization}</p>` : ''}
@@ -169,31 +176,42 @@ router.post("/verify-payment", async (req, res) => {
                     <br>
                     <p><em>Please see attached registration card.</em></p>
                 `;
-        console.log("Sending Admin Email...");
-        const adminEmailSent = await sendEmail(process.env.ADMIN_EMAIL, "New Registration Alert", adminHtml, [
-          {
-            filename: "registration_card.png",
-            content: cardImage.toString("base64"),
-            encoding: "base64"
-          }
-        ]);
-
-
-        if (adminEmailSent) console.log("Admin Email sent successfully.");
-        else console.error("FAILED to send Admin Email.");
-
-        if (userEmailSent && adminEmailSent) {
-          console.log("All emails sent successfully for:", finalReg.reg_id);
-        } else {
-          console.warn("Some emails failed to send for:", finalReg.reg_id);
-        }
-      } catch (bkError) {
-        console.error("Background Task Error (Emails/Card):", bkError);
+    console.log("Sending Admin Email...");
+    const adminEmailSent = await sendEmail([process.env.ADMIN_EMAIL, process.env.EMAIL_USER], "Registration Confirmation - TGSDC 2026", adminHtml, [
+      {
+        filename: "registration_card.png",
+        content: cardImage.toString("base64"),
+        encoding: "base64"
       }
-    })();
-  } catch (err) {
-    console.error(err);
-    res.json({ success: false, error: err.message });
+    ]);
+
+    if (adminEmailSent) console.log("Admin Email sent successfully.");
+    else console.error("FAILED to send Admin Email.");
+
+    return { userEmailSent, adminEmailSent };
+
+  } catch (error) {
+    console.error("handleRegistrationEmails Error:", error);
+    throw error;
+  }
+}
+
+// RESEND EMAIL ROUTE
+router.post("/resend-email", async (req, res) => {
+  try {
+    const { id } = req.body;
+    if (!id) return res.json({ success: false, error: "Registration ID (Database ID) is required." });
+
+    const registration = await Registration.findById(id);
+    if (!registration) return res.json({ success: false, error: "Registration not found in database." });
+
+    // Trigger emails
+    await handleRegistrationEmails(registration);
+
+    res.json({ success: true, message: "Emails sent successfully!" });
+  } catch (error) {
+    console.error("Resend Email Error:", error);
+    res.json({ success: false, error: error.message });
   }
 });
 
