@@ -285,7 +285,16 @@ router.post("/register", async (req, res) => {
       prefix = "BAN"; // Standalone Banquet
     }
 
-    const newRegId = existing_reg_id || (prefix + Date.now());
+    let newRegId = existing_reg_id || (prefix + Date.now());
+
+    // UPGRADE ID LOGIC: If existing ID is provided and upgrading to Banquet
+    if (existing_reg_id && typeUpper.includes("BANQUET")) {
+      if (existing_reg_id.startsWith("DL") && !existing_reg_id.startsWith("DLB")) {
+        newRegId = "DLB" + existing_reg_id.substring(2);
+      } else if (existing_reg_id.startsWith("D") && !existing_reg_id.startsWith("DL") && !existing_reg_id.startsWith("DB")) {
+        newRegId = "DB" + existing_reg_id.substring(1);
+      }
+    }
 
     // SAVE TO TEMP REGISTRATION
     const reg = new TempRegistration({
