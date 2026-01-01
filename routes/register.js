@@ -10,83 +10,127 @@ const generateQRCode = require("../utils/qrcode");
 const sendEmail = require("../utils/email");
 const generateRegistrationCard = require("../utils/cardGenerator");
 
+const crypto = require("crypto");
+
 // GET RAZORPAY KEY
 router.get("/get-razorpay-key", (req, res) => {
   res.json({ key: razorpayConfig.key_id });
 });
 
+/**
+ * IDEMPOTENT FUNCTION TO COMPLETE REGISTRATION
+ * Can be called by /verify-payment (Client) or Webhook (Server)
+ */
+async function completeRegistration(razorpay_order_id, razorpay_payment_id, razorpay_signature, reg_id) {
+  // 1. Check if already processed (Idempotency)
+  const existingMain = await Registration.findOne({
+    $or: [{ razorpay_order_id }, { razorpay_payment_id }]
+  });
+  if (existingMain) {
+    console.log(`Registration already exists for Order ${razorpay_order_id}. Skipping.`);
+    return existingMain;
+  }
+
+  // 2. Find the TEMP Registration
+  let tempReg = await TempRegistration.findOne({ razorpay_order_id });
+
+  // FALLBACK: If not found by Order ID, try finding by Reg ID (Self-Healing)
+  if (!tempReg && reg_id) {
+    console.warn(`Order ID ${razorpay_order_id} not found in DB. Trying Reg ID ${reg_id}...`);
+    tempReg = await TempRegistration.findOne({ reg_id });
+    if (tempReg) {
+      tempReg.razorpay_order_id = razorpay_order_id;
+      await tempReg.save();
+    }
+  }
+
+  if (!tempReg) {
+    throw new Error(`Registration session not found for order ${razorpay_order_id}`);
+  }
+
+  // 3. MOVE TO PERMANENT COLLECTION
+  const finalReg = new Registration({
+    reg_id: tempReg.reg_id,
+    reg_type: tempReg.reg_type,
+    college: tempReg.college,
+    study_year: tempReg.study_year,
+    organization: tempReg.organization,
+    designation: tempReg.designation,
+    dci_reg_number: tempReg.dci_reg_number,
+    title: tempReg.title,
+    name: tempReg.name,
+    gender: tempReg.gender,
+    address: tempReg.address,
+    state: tempReg.state,
+    city: tempReg.city,
+    pincode: tempReg.pincode,
+    email: tempReg.email,
+    mobile: tempReg.mobile,
+    comments: tempReg.comments,
+    amount: tempReg.amount,
+    payment_status: "Paid",
+    razorpay_order_id,
+    razorpay_payment_id,
+    razorpay_signature: razorpay_signature || "WEBHOOK_CAPTURE"
+  });
+
+  await finalReg.save();
+
+  // 4. DELETE TEMP
+  await TempRegistration.deleteOne({ _id: tempReg._id });
+
+  // 5. Send Emails (Non-blocking)
+  handleRegistrationEmails(finalReg).catch(err => console.error("Email Error after capture:", err));
+
+  return finalReg;
+}
+
 router.post("/verify-payment", async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, reg_id } = req.body;
-
-    // 1. Find the TEMP Registration
-    let tempReg = await TempRegistration.findOne({ razorpay_order_id });
-
-    // FALLBACK: If not found by Order ID, try finding by Reg ID (Self-Healing)
-    if (!tempReg && reg_id) {
-      console.warn(`Order ID ${razorpay_order_id} not found in DB. Trying Reg ID ${reg_id}...`);
-      tempReg = await TempRegistration.findOne({ reg_id });
-
-      // If found, update it with the missing Order ID so we can proceed
-      if (tempReg) {
-        tempReg.razorpay_order_id = razorpay_order_id;
-        await tempReg.save();
-        console.log("Self-Healed: Linked Order ID to Registration.");
-      }
-    }
-
-    if (!tempReg) {
-      // Fallback: Check if it's already in Main
-      const existingMain = await Registration.findOne({ razorpay_order_id });
-      if (existingMain) {
-        return res.json({ success: true, message: "Already verified" });
-      }
-      return res.json({ success: false, error: "Registration session not found or expired. Please register again." });
-    }
-
-    // 2. MOVE TO PERMANENT COLLECTION
-    const finalReg = new Registration({
-      reg_id: tempReg.reg_id,
-      reg_type: tempReg.reg_type,
-      college: tempReg.college,
-      study_year: tempReg.study_year,
-      organization: tempReg.organization,
-      designation: tempReg.designation,
-      dci_reg_number: tempReg.dci_reg_number,
-      title: tempReg.title,
-      name: tempReg.name,
-      gender: tempReg.gender,
-      address: tempReg.address,
-      state: tempReg.state,
-      city: tempReg.city,
-      pincode: tempReg.pincode,
-      email: tempReg.email,
-      mobile: tempReg.mobile,
-      comments: tempReg.comments,
-      amount: tempReg.amount,
-
-      // Payment Details
-      payment_status: "Paid",
-      razorpay_order_id: razorpay_order_id,
-      razorpay_payment_id: razorpay_payment_id,
-      razorpay_signature: razorpay_signature
-    });
-
-    await finalReg.save();
-
-    // 3. DELETE TEMP
-    // 3. DELETE TEMP
-    await TempRegistration.deleteOne({ _id: tempReg._id });
-
-    // SEND RESPONSE IMMEDIATELY to prevent UI hanging
+    await completeRegistration(razorpay_order_id, razorpay_payment_id, razorpay_signature, reg_id);
     res.json({ success: true });
-
-    // 4. Generate Card & Emails (BACKGROUND PROCESS)
-    handleRegistrationEmails(finalReg);
   } catch (err) {
-    console.error(err);
+    console.error("Manual Verify Error:", err);
+    // Even if it fails here, we return success if it was already processed (already handled in completeRegistration)
     res.json({ success: false, error: err.message });
   }
+});
+
+// RAZORPAY WEBHOOK
+router.post("/webhook/razorpay", async (req, res) => {
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+  // 1. Verify Signature
+  const shasum = crypto.createHmac("sha256", secret);
+  shasum.update(JSON.stringify(req.body));
+  const digest = shasum.digest("hex");
+
+  if (digest !== req.headers["x-razorpay-signature"]) {
+    console.error("Invalid Webhook Signature");
+    return res.status(400).send("Invalid signature");
+  }
+
+  console.log("Webhook Received:", req.body.event);
+
+  // 2. Handle Payment Captured Event
+  if (req.body.event === "payment.captured") {
+    const payment = req.body.payload.payment.entity;
+    const order_id = payment.order_id;
+    const payment_id = payment.id;
+
+    try {
+      console.log(`Processing Webhook for Order ${order_id}...`);
+      await completeRegistration(order_id, payment_id, "WEBHOOK", null);
+      console.log(`Webhook: Order ${order_id} completed successfully.`);
+    } catch (err) {
+      console.error("Webhook Processing Error:", err.message);
+      // We still return 200 to Razorpay to stop retries, 
+      // since the error is likely due to record not being found (expired session)
+    }
+  }
+
+  res.json({ status: "ok" });
 });
 
 // REUSABLE EMAIL FUNCTION
@@ -289,10 +333,23 @@ router.post("/register", async (req, res) => {
 
     // UPGRADE ID LOGIC: If existing ID is provided and upgrading to Banquet
     if (existing_reg_id && typeUpper.includes("BANQUET")) {
-      if (existing_reg_id.startsWith("DL") && !existing_reg_id.startsWith("DLB")) {
-        newRegId = "DLB" + existing_reg_id.substring(2);
-      } else if (existing_reg_id.startsWith("D") && !existing_reg_id.startsWith("DL") && !existing_reg_id.startsWith("DB")) {
-        newRegId = "DB" + existing_reg_id.substring(1);
+      // 1. Try to find the original record to determine actual category (robust even if old ID was 'REG')
+      const originalReg = await Registration.findOne({ reg_id: existing_reg_id });
+      if (originalReg) {
+        const oldType = originalReg.reg_type.toUpperCase();
+        const hasLunch = oldType.includes("WITH LUNCH");
+        const numericPart = existing_reg_id.replace(/^\D+/, ''); // Get the numeric part (e.g. from REG123 or D123)
+
+        if (oldType.includes("DELEGATE")) {
+          newRegId = (hasLunch ? "DLB" : "DB") + numericPart;
+        }
+      } else {
+        // Fallback: If not found in DB yet, try prefix logic
+        if (existing_reg_id.startsWith("DL") && !existing_reg_id.startsWith("DLB")) {
+          newRegId = "DLB" + existing_reg_id.substring(2);
+        } else if (existing_reg_id.startsWith("D") && !existing_reg_id.startsWith("DL") && !existing_reg_id.startsWith("DB")) {
+          newRegId = "DB" + existing_reg_id.substring(1);
+        }
       }
     }
 
