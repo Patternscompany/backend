@@ -151,7 +151,7 @@ async function handleRegistrationEmails(finalReg) {
                     <p>Entry Ticket</p>
                 </div>
                 <div style="padding: 20px; border: 1px solid #ddd;">
-                    <p>Hello <b>${finalReg.name}</b>,</p>
+                    <p>Hello <b>${finalReg.title}. ${finalReg.name}</b>,</p>
                     
                     <p>Your entry ticket for <b>10ᵗʰ Telangana State Dental Conference 2026</b> is ready for download.</p>
                     
@@ -200,7 +200,7 @@ async function handleRegistrationEmails(finalReg) {
 
     const adminHtml = `
                     <h3>Registration Confirmation (Resent/New)</h3>
-                    <p><b>Name:</b> ${finalReg.title} ${finalReg.name}</p>
+                    <p><b>Name:</b> ${finalReg.title}. ${finalReg.name}</p>
                     <p><b>Reg ID:</b> ${finalReg.reg_id}</p>
                     <p><b>Type:</b> ${finalReg.reg_type}</p>
                     <p><b>Mobile:</b> ${finalReg.mobile}</p>
