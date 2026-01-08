@@ -9,6 +9,8 @@ const razorpayConfig = require("../config/razorpay");
 const generateQRCode = require("../utils/qrcode");
 const sendEmail = require("../utils/email");
 const generateRegistrationCard = require("../utils/cardGenerator");
+const saveQrToPublic = require("../utils/qrStorage");
+const sendWhatsAppTicket = require("../utils/sendWhatsApp");
 
 const crypto = require("crypto");
 
@@ -133,17 +135,22 @@ router.post("/webhook/razorpay", async (req, res) => {
   res.json({ status: "ok" });
 });
 
-// REUSABLE EMAIL FUNCTION
+// REUSABLE BACKGROUND TASKS FUNCTION (Email + WhatsApp)
 async function handleRegistrationEmails(finalReg) {
   try {
     console.log("Starting background tasks for Reg ID:", finalReg.reg_id);
 
-    // Note: cardGenerator exports the function directly
+    // 1. Generate Registration Card
     console.log("Generating Registration Card...");
     const cardImage = await generateRegistrationCard(finalReg);
     console.log("Card generated successfully.");
 
-    // User Email
+    // 2. Save Card to Public Storage (for WhatsApp/Links)
+    console.log("Saving card to public storage...");
+    const qrPublicUrl = saveQrToPublic(cardImage, finalReg.reg_id);
+    console.log("Card available at:", qrPublicUrl);
+
+    // 3. User Email
     const userHtml = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <div style="background-color: #0a6ebd; padding: 20px; text-align: center; color: white;">
@@ -152,31 +159,19 @@ async function handleRegistrationEmails(finalReg) {
                 </div>
                 <div style="padding: 20px; border: 1px solid #ddd;">
                     <p>Hello <b>${finalReg.title}. ${finalReg.name}</b>,</p>
-                    
                     <p>Your entry ticket for <b>10ᵗʰ Telangana State Dental Conference 2026</b> is ready for download.</p>
-                    
-                    <p>This event encompasses the scientific sessions, Trade for practitioners & students, cultural events and Banquet for socialising fellow dentists.</p>
-                    
                     <p>Click the <b>Download Entry Ticket</b> button below to access your ticket.</p>
-                    
                     <div style="text-align: center; margin: 30px 0;">
-                        <a href="#" style="background-color: #0a6ebd; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">Download Entry Ticket</a>
+                        <a href="${qrPublicUrl}" style="background-color: #0a6ebd; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">Download Entry Ticket</a>
                         <p style="margin-top: 10px; font-size: 12px; color: #666;">(Please see the attachment below)</p>
                     </div>
-
                     <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #0a6ebd;">
                         <h4 style="margin-top: 0;">Event Details:</h4>
                         <p><b>Dates:</b> 24 - 25 January 2026</p>
                         <p><b>Venue:</b> Sevalal Banjara Bhavan, Banjara Hills, Hyderabad</p>
                     </div>
-                    
-                    <p style="margin-top: 20px;">Please keep this ticket handy for entry.</p>
                 </div>
-                <div style="text-align: center; padding: 10px; font-size: 12px; color: #888;">
-                    &copy; 2026 TGSDC. All rights reserved.
-                </div>
-            </div>
-            `;
+            </div>`;
 
     console.log("Sending User Email to:", finalReg.email);
     const userEmailSent = await sendEmail(finalReg.email, "Registration Confirmed - TGSDC 2026", userHtml, [
@@ -187,39 +182,19 @@ async function handleRegistrationEmails(finalReg) {
       }
     ]);
 
-    if (userEmailSent) console.log("User Email sent successfully.");
-    else console.error("FAILED to send User Email.");
-
-    // Admin Email
-    const doctorHtml = finalReg.dci_reg_number
-      ? `<p><b>DCI Reg Number:</b> ${finalReg.dci_reg_number}</p>`
-      : "";
-    const studentHtml = finalReg.study_year
-      ? `<p><b>College:</b> ${finalReg.college}</p><p><b>Year:</b> ${finalReg.study_year}</p>`
-      : "";
-
+    // 4. Admin Email
+    const doctorHtml = finalReg.dci_reg_number ? `<p><b>DCI Reg Number:</b> ${finalReg.dci_reg_number}</p>` : "";
+    const studentHtml = finalReg.study_year ? `<p><b>College:</b> ${finalReg.college}</p><p><b>Year:</b> ${finalReg.study_year}</p>` : "";
     const adminHtml = `
-                    <h3>Registration Confirmation (Resent/New)</h3>
+                    <h3>Registration Confirmation</h3>
                     <p><b>Name:</b> ${finalReg.title}. ${finalReg.name}</p>
                     <p><b>Reg ID:</b> ${finalReg.reg_id}</p>
-                    <p><b>Type:</b> ${finalReg.reg_type}</p>
                     <p><b>Mobile:</b> ${finalReg.mobile}</p>
                     <p><b>Email:</b> ${finalReg.email}</p>
                     <p><b>Amount:</b> ₹${finalReg.amount}</p>
-                    <hr>
-                    <h3>Additional Details</h3>
-                    ${finalReg.organization ? `<p><b>Organization:</b> ${finalReg.organization}</p>` : ''}
-                    ${finalReg.designation ? `<p><b>Designation:</b> ${finalReg.designation}</p>` : ''}
-                    ${doctorHtml}
-                    ${studentHtml}
-                    ${finalReg.address ? `<p><b>Address:</b> ${finalReg.address}</p>` : ''}
-                    ${finalReg.state ? `<p><b>State:</b> ${finalReg.state}</p>` : ''}
-                    ${finalReg.city ? `<p><b>City:</b> ${finalReg.city}</p>` : ''}
-                    ${finalReg.pincode ? `<p><b>Pincode:</b> ${finalReg.pincode}</p>` : ''}
-                    ${finalReg.comments ? `<p><b>Comments:</b> ${finalReg.comments}</p>` : ''}
-                    <br>
-                    <p><em>Please see attached registration card.</em></p>
+                    ${doctorHtml} ${studentHtml}
                 `;
+
     console.log("Sending Admin Email...");
     const adminEmailSent = await sendEmail([process.env.ADMIN_EMAIL, process.env.EMAIL_USER], "Registration Confirmation - TGSDC 2026", adminHtml, [
       {
@@ -229,10 +204,13 @@ async function handleRegistrationEmails(finalReg) {
       }
     ]);
 
-    if (adminEmailSent) console.log("Admin Email sent successfully.");
-    else console.error("FAILED to send Admin Email.");
+    // 5. WhatsApp Confirmation
+    console.log("Attempting WhatsApp confirmation...");
+    const whatsappSent = await sendWhatsAppTicket(finalReg, qrPublicUrl);
+    if (whatsappSent) console.log("WhatsApp sent successfully.");
+    else console.warn("WhatsApp sending FAILED.");
 
-    return { userEmailSent, adminEmailSent };
+    return { userEmailSent, adminEmailSent, whatsappSent };
 
   } catch (error) {
     console.error("handleRegistrationEmails Error:", error);
