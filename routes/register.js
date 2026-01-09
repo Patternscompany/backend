@@ -160,6 +160,7 @@ async function handleRegistrationEmails(finalReg) {
                 <div style="padding: 20px; border: 1px solid #ddd;">
                     <p>Hello <b>${finalReg.title}. ${finalReg.name}</b>,</p>
                     <p>Your entry ticket for <b>10ᵗʰ Telangana State Dental Conference 2026</b> is ready for download.</p>
+                    <p>This event encompasses the scientific sessions, Trade for practitioners & students, cultural events and Banquet for socialising fellow dentists.</p>
                     <p>Click the <b>Download Entry Ticket</b> button below to access your ticket.</p>
                     <div style="text-align: center; margin: 30px 0;">
                         <a href="${qrPublicUrl}" style="background-color: #0a6ebd; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">Download Entry Ticket</a>
@@ -192,7 +193,19 @@ async function handleRegistrationEmails(finalReg) {
                     <p><b>Mobile:</b> ${finalReg.mobile}</p>
                     <p><b>Email:</b> ${finalReg.email}</p>
                     <p><b>Amount:</b> ₹${finalReg.amount}</p>
-                    ${doctorHtml} ${studentHtml}
+                    <hr>
+                    <h3>Additional Details</h3>
+                    ${finalReg.organization ? `<p><b>Organization:</b> ${finalReg.organization}</p>` : ''}
+                    ${finalReg.designation ? `<p><b>Designation:</b> ${finalReg.designation}</p>` : ''}
+                    ${doctorHtml}
+                    ${studentHtml}
+                    ${finalReg.address ? `<p><b>Address:</b> ${finalReg.address}</p>` : ''}
+                    ${finalReg.state ? `<p><b>State:</b> ${finalReg.state}</p>` : ''}
+                    ${finalReg.city ? `<p><b>City:</b> ${finalReg.city}</p>` : ''}
+                    ${finalReg.pincode ? `<p><b>Pincode:</b> ${finalReg.pincode}</p>` : ''}
+                    ${finalReg.comments ? `<p><b>Comments:</b> ${finalReg.comments}</p>` : ''}
+                    <br>
+                    <p><em>Please see attached registration card.</em></p>
                 `;
 
     console.log("Sending Admin Email...");
