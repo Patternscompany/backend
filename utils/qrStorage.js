@@ -19,7 +19,7 @@ function saveQrToPublic(cardImageBuffer, regId) {
 
     // Return the URL. (Using env or fallback to localhost)
     const baseUrl = process.env.BASE_URL || "http://localhost:5000";
-    return `${baseUrl}/public/qrcodes/${fileName}`;
+    return `${baseUrl}/qrcodes/${fileName}`;
 }
 
 module.exports = saveQrToPublic;

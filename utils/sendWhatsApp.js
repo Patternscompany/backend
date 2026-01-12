@@ -3,7 +3,7 @@ const axios = require("axios");
 async function sendWhatsAppTicket(finalReg, qrImageUrl) {
     try {
         const payload = {
-            countryCode: "+91",
+            countryCode: "91",
             phoneNumber: finalReg.mobile,
             type: "Template",
             template: {

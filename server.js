@@ -12,7 +12,15 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use('/public', express.static(path.join(__dirname, '../public')));
+app.use(
+  "/qrcodes",
+  express.static(path.join(__dirname, "../public/qrcodes"), {
+    setHeaders: (res) => {
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "public, max-age=31536000");
+    }
+  })
+);
 
 // Connect DB
 connectDB();
