@@ -8,10 +8,7 @@ const path = require("path");
 
 const app = express();
 
-// Middlewares
-app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+
 app.use(
   "/qrcodes",
   express.static(path.join(__dirname, "../public/qrcodes"), {
@@ -21,6 +18,11 @@ app.use(
     }
   })
 );
+// Middlewares
+app.use(cors());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
 
 // Connect DB
 connectDB();

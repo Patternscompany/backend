@@ -250,6 +250,36 @@ router.post("/resend-email", async (req, res) => {
   }
 });
 
+// RESEND WHATSAPP ROUTE
+router.post("/resend-whatsapp", async (req, res) => {
+  try {
+    const { id } = req.body;
+    if (!id) return res.json({ success: false, error: "Registration ID (Database ID) is required." });
+
+    const registration = await Registration.findById(id);
+    if (!registration) return res.json({ success: false, error: "Registration not found in database." });
+
+    // 1. Generate Registration Card
+    console.log("Generating Registration Card for WhatsApp resend...");
+    const cardImage = await generateRegistrationCard(registration);
+
+    // 2. Save Card to Public Storage
+    const qrPublicUrl = saveQrToPublic(cardImage, registration.reg_id);
+
+    // 3. Send WhatsApp
+    const whatsappSent = await sendWhatsAppTicket(registration, qrPublicUrl);
+
+    if (whatsappSent) {
+      res.json({ success: true, message: "WhatsApp message sent successfully!" });
+    } else {
+      res.json({ success: false, error: "WhatsApp sending failed. Check server logs." });
+    }
+  } catch (error) {
+    console.error("Resend WhatsApp Error:", error);
+    res.json({ success: false, error: error.message });
+  }
+});
+
 router.post("/register", async (req, res) => {
   try {
     const {
