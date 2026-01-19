@@ -7,7 +7,7 @@ async function sendWhatsAppTicket(finalReg, qrImageUrl) {
             phoneNumber: finalReg.mobile,
             type: "Template",
             template: {
-                name: "tgsdc_entry_ticket",
+                name: "tgsdc_entry_ticket_qr",
                 languageCode: "en",
                 headerValues: [
                     qrImageUrl

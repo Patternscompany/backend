@@ -9,9 +9,11 @@ const path = require("path");
 const app = express();
 
 
+const os = require("os");
+
 app.use(
   "/qrcodes",
-  express.static(path.join(__dirname, "../public/qrcodes"), {
+  express.static(path.join(os.tmpdir(), "tgsdc_qrcodes"), {
     setHeaders: (res) => {
       res.setHeader("Content-Type", "image/png");
       res.setHeader("Cache-Control", "public, max-age=31536000");

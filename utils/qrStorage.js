@@ -1,12 +1,13 @@
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 
 /**
- * Saves the registration card image buffer to the public directory
- * and returns the publicly accessible URL.
+ * Saves the registration card image buffer to a temporary directory
+ * outside the project folder to avoid triggering file-watchers (Live Server/Nodemon).
  */
 function saveQrToPublic(cardImageBuffer, regId) {
-    const qrDir = path.join(__dirname, "../../public/qrcodes");
+    const qrDir = path.join(os.tmpdir(), "tgsdc_qrcodes");
 
     if (!fs.existsSync(qrDir)) {
         fs.mkdirSync(qrDir, { recursive: true });

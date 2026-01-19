@@ -50,33 +50,52 @@ async function completeRegistration(razorpay_order_id, razorpay_payment_id, razo
     throw new Error(`Registration session not found for order ${razorpay_order_id}`);
   }
 
-  // 3. MOVE TO PERMANENT COLLECTION
-  const finalReg = new Registration({
-    reg_id: tempReg.reg_id,
-    reg_type: tempReg.reg_type,
-    college: tempReg.college,
-    study_year: tempReg.study_year,
-    organization: tempReg.organization,
-    designation: tempReg.designation,
-    dci_reg_number: tempReg.dci_reg_number,
-    title: tempReg.title,
-    name: tempReg.name,
-    gender: tempReg.gender,
-    address: tempReg.address,
-    state: tempReg.state,
-    city: tempReg.city,
-    pincode: tempReg.pincode,
-    email: tempReg.email,
-    mobile: tempReg.mobile,
-    comments: tempReg.comments,
-    amount: tempReg.amount,
-    payment_status: "Paid",
-    razorpay_order_id,
-    razorpay_payment_id,
-    razorpay_signature: razorpay_signature || "WEBHOOK_CAPTURE"
-  });
+  // 3. MOVE TO PERMANENT COLLECTION (OR UPDATE IF UPGRADE)
+  let finalReg;
+  const existingReg = await Registration.findOne({ reg_id: tempReg.reg_id });
 
-  await finalReg.save();
+  if (existingReg) {
+    // UPGRADE CASE: Update existing record
+    existingReg.reg_type = tempReg.reg_type;
+    existingReg.amount = (existingReg.amount || 0) + tempReg.amount; // Add upgrade fee to total
+    existingReg.razorpay_order_id = razorpay_order_id;
+    existingReg.razorpay_payment_id = razorpay_payment_id;
+    existingReg.razorpay_signature = razorpay_signature || "WEBHOOK_CAPTURE";
+    // Update basic info too just in case
+    existingReg.email = tempReg.email;
+    existingReg.mobile = tempReg.mobile;
+
+    await existingReg.save();
+    finalReg = existingReg;
+    console.log(`Updated existing registration ${tempReg.reg_id} (Upgrade)`);
+  } else {
+    // NEW REGISTRATION CASE
+    finalReg = new Registration({
+      reg_id: tempReg.reg_id,
+      reg_type: tempReg.reg_type,
+      college: tempReg.college,
+      study_year: tempReg.study_year,
+      organization: tempReg.organization,
+      designation: tempReg.designation,
+      dci_reg_number: tempReg.dci_reg_number,
+      title: tempReg.title,
+      name: tempReg.name,
+      gender: tempReg.gender,
+      address: tempReg.address,
+      state: tempReg.state,
+      city: tempReg.city,
+      pincode: tempReg.pincode,
+      email: tempReg.email,
+      mobile: tempReg.mobile,
+      comments: tempReg.comments,
+      amount: tempReg.amount,
+      payment_status: "Paid",
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature: razorpay_signature || "WEBHOOK_CAPTURE"
+    });
+    await finalReg.save();
+  }
 
   // 4. DELETE TEMP
   await TempRegistration.deleteOne({ _id: tempReg._id });
@@ -304,13 +323,14 @@ router.post("/register", async (req, res) => {
     } = req.body;
 
     // 1. DUPLICATE CHECK (Check MAIN Registration collection)
-    if (reg_type !== "Banquet Pass (Add-on)") {
+    // Bypass for Standalone Banquet and Upgrades
+    if (reg_type !== "Banquet Pass (Add-on)" && !existing_reg_id) {
       // We still check the PERMANENT collection to prevent re-registration
       const existingUser = await Registration.findOne({ mobile });
       if (existingUser) {
         return res.json({
           success: false,
-          error: "A registration with this Phone Number already exists. Please use a different Phone Number or check your status."
+          error: "A registration with this Phone Number already exists. Please use a different Phone Number or check your status/upgrade."
         });
       }
     }
@@ -352,26 +372,11 @@ router.post("/register", async (req, res) => {
 
     let newRegId = existing_reg_id || (prefix + Date.now());
 
-    // UPGRADE ID LOGIC: If existing ID is provided and upgrading to Banquet
-    if (existing_reg_id && typeUpper.includes("BANQUET")) {
-      // 1. Try to find the original record to determine actual category (robust even if old ID was 'REG')
-      const originalReg = await Registration.findOne({ reg_id: existing_reg_id });
-      if (originalReg) {
-        const oldType = originalReg.reg_type.toUpperCase();
-        const hasLunch = oldType.includes("WITH LUNCH");
-        const numericPart = existing_reg_id.replace(/^\D+/, ''); // Get the numeric part (e.g. from REG123 or D123)
-
-        if (oldType.includes("DELEGATE")) {
-          newRegId = (hasLunch ? "DLB" : "DB") + numericPart;
-        }
-      } else {
-        // Fallback: If not found in DB yet, try prefix logic
-        if (existing_reg_id.startsWith("DL") && !existing_reg_id.startsWith("DLB")) {
-          newRegId = "DLB" + existing_reg_id.substring(2);
-        } else if (existing_reg_id.startsWith("D") && !existing_reg_id.startsWith("DL") && !existing_reg_id.startsWith("DB")) {
-          newRegId = "DB" + existing_reg_id.substring(1);
-        }
-      }
+    // UPGRADE ID LOGIC: If existing ID is provided, transform the prefix to match new category
+    if (existing_reg_id) {
+      const numericPart = existing_reg_id.replace(/^\D+/, ''); // Get the numeric part (e.g. from REG123, D123, RC123)
+      newRegId = prefix + numericPart;
+      console.log(`Upgrading Registration ID: ${existing_reg_id} -> ${newRegId}`);
     }
 
     // SAVE TO TEMP REGISTRATION
@@ -408,58 +413,49 @@ router.post("/register", async (req, res) => {
 });
 
 // CHECK STATUS FOR BANQUET UPGRADE
-// CHECK STATUS FOR BANQUET UPGRADE
+// CHECK STATUS FOR UPGRADES
 router.post("/check-status", async (req, res) => {
   try {
     const { mobile } = req.body;
     if (!mobile) return res.json({ success: false, error: "Mobile Number is required" });
 
-    // Find by email (sort by latest if multiple)
+    // Find by mobile (sort by latest if multiple)
     const reg = await Registration.findOne({ mobile }).sort({ _id: -1 });
 
     if (!reg) {
       return res.json({ success: false, error: "No registration found with this Mobile Number." });
     }
 
-    // Check if eligible (Doctor/RC, not Student)
-    // Adjust logic based on exact category names
-    const lowerType = reg.reg_type.toLowerCase();
+    const currentType = reg.reg_type.toUpperCase();
+    let upgrades = [];
 
-    // 1. Check Eligibility (No Students)
-    if (lowerType.includes("student")) {
-      return res.json({ success: false, error: "Banquet Pass not available for Student categories to upgrade online." });
+    // DEFINE UPGRADE OPTIONS
+    // Prices based on: S(500), SL(1000), D(1000), DL(1500), RC(3500)
+
+    if (currentType.includes("STUDENT")) {
+      if (!currentType.includes("WITH LUNCH")) {
+        upgrades.push({ to: "STUDENT(WITH LUNCH)", amount: 500, label: "Upgrade to Student with Lunch (+₹500)" });
+      }
     }
-
-    // 2. Check if RC Member (Already Included)
-    if (lowerType.includes("rc member")) {
-      return res.json({ success: false, error: "Banquet is already included in your RC Membership." });
+    else if (currentType.includes("DELEGATE")) {
+      const hasLunch = currentType.includes("WITH LUNCH");
+      if (!hasLunch) {
+        upgrades.push({ to: "DELEGATE(WITH LUNCH)", amount: 500, label: "Upgrade to Delegate with Lunch (+₹500)" });
+        upgrades.push({ to: "RC MEMBER", amount: 2500, label: "Upgrade to RC Member (Includes Lunch + Banquet) (+₹2,500)" });
+      } else {
+        upgrades.push({ to: "RC MEMBER", amount: 2000, label: "Upgrade to RC Member (Includes Banquet) (+₹2,000)" });
+      }
     }
-
-    // 2. Check if already has Banquet/Hospitality
-    if (lowerType.includes("banquet") || lowerType.includes("hospitality")) {
-      return res.json({ success: false, error: "Your registration already includes a Banquet Pass." });
-    }
-
-    // 3. Check for Duplicate Upgrade (Optional validation)
-    // const existingUpgrade = await Registration.findOne({ comments: "Upgrade for " + reg.reg_id });
-    // if (existingUpgrade) return res.json({ success: false, error: "Upgrade already exists." });
 
     return res.json({
       success: true,
-      // Return full profile to clone
       existing_reg_id: reg.reg_id,
       title: reg.title,
       name: reg.name,
-      gender: reg.gender,
-      organization: reg.organization,
-      designation: reg.designation,
-      address: reg.address,
-      state: reg.state,
-      city: reg.city,
-      pincode: reg.pincode,
       email: reg.email,
       mobile: reg.mobile,
-      reg_type: reg.reg_type
+      current_reg_type: reg.reg_type,
+      upgrades: upgrades
     });
 
   } catch (err) {
