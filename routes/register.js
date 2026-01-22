@@ -374,7 +374,7 @@ router.post("/register", async (req, res) => {
       const hasLunch = typeUpper.includes("LUNCH");
       const hasBanquet = typeUpper.includes("BANQUET");
 
-      if (hasLunch && hasBanquet) prefix = "DLB";
+      if (hasLunch && hasBanquet) prefix = "RC";
       else if (hasBanquet) prefix = "DB";
       else if (hasLunch) prefix = "DL";
       else prefix = "D";
