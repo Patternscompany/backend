@@ -322,16 +322,31 @@ router.post("/register", async (req, res) => {
       amount
     } = req.body;
 
-    // 1. DUPLICATE CHECK (Check MAIN Registration collection)
-    // Bypass for Standalone Banquet and Upgrades
-    if (reg_type !== "Banquet Pass (Add-on)" && !existing_reg_id) {
-      // We still check the PERMANENT collection to prevent re-registration
+    // 1. DUPLICATE CHECK & AUTO-UPGRADE LOGIC
+    let actual_reg_type = reg_type;
+    let effective_reg_id = existing_reg_id;
+
+    if (!effective_reg_id) {
       const existingUser = await Registration.findOne({ mobile });
       if (existingUser) {
-        return res.json({
-          success: false,
-          error: "A registration with this Phone Number already exists. Please use a different Phone Number or check your status/upgrade."
-        });
+        // If it's a Banquet Pass being added to an existing registration, allow as upgrade
+        if (typeUpper.includes("BANQUET")) {
+          // BLOCK STUDENTS FROM BANQUET
+          if (existingUser.reg_type.toUpperCase().includes("STUDENT")) {
+            return res.json({
+              success: false,
+              error: "Banquet Pass is restricted to Doctors/Delegates and is not available for Student categories."
+            });
+          }
+          console.log(`Auto-upgrading existing user ${existingUser.reg_id} with Banquet Pass`);
+          effective_reg_id = existingUser.reg_id;
+          actual_reg_type = existingUser.reg_type + " + " + reg_type;
+        } else {
+          return res.json({
+            success: false,
+            error: "A registration with this Phone Number already exists. Please use a different Phone Number or check your status/upgrade."
+          });
+        }
       }
     }
 
@@ -347,13 +362,15 @@ router.post("/register", async (req, res) => {
 
     // GENERATE ID OR USE EXISTING
     let prefix = "REG";
-    const typeUpper = reg_type.toUpperCase();
+    const typeUpper = actual_reg_type.toUpperCase();
 
+    // Priority 1: RC MEMBER
     if (typeUpper.includes("RC MEMBER")) {
       prefix = "RC";
     }
+    // Priority 2: DELEGATE
     else if (typeUpper.includes("DELEGATE")) {
-      const hasLunch = typeUpper.includes("WITH LUNCH");
+      const hasLunch = typeUpper.includes("LUNCH");
       const hasBanquet = typeUpper.includes("BANQUET");
 
       if (hasLunch && hasBanquet) prefix = "DLB";
@@ -361,28 +378,34 @@ router.post("/register", async (req, res) => {
       else if (hasLunch) prefix = "DL";
       else prefix = "D";
     }
+    // Priority 3: STUDENT
     else if (typeUpper.includes("STUDENT") || typeUpper.includes("INTERN") || typeUpper.includes("PG STUDENT")) {
-      const hasLunch = typeUpper.includes("WITH LUNCH");
-      if (hasLunch) prefix = "SL";
+      const hasLunch = typeUpper.includes("LUNCH");
+      const hasBanquet = typeUpper.includes("BANQUET");
+
+      if (hasLunch && hasBanquet) prefix = "SLB";
+      else if (hasBanquet) prefix = "SB";
+      else if (hasLunch) prefix = "SL";
       else prefix = "S";
     }
+    // Priority 4: STANDALONE BANQUET
     else if (typeUpper.includes("BANQUET")) {
-      prefix = "BAN"; // Standalone Banquet
+      prefix = "B";
     }
 
-    let newRegId = existing_reg_id || (prefix + Date.now());
+    let newRegId = effective_reg_id || (prefix + Date.now());
 
     // UPGRADE ID LOGIC: If existing ID is provided, transform the prefix to match new category
-    if (existing_reg_id) {
-      const numericPart = existing_reg_id.replace(/^\D+/, ''); // Get the numeric part (e.g. from REG123, D123, RC123)
+    if (effective_reg_id) {
+      const numericPart = effective_reg_id.replace(/^\D+/, ''); // Get the numeric part (e.g. from REG123, D123, RC123)
       newRegId = prefix + numericPart;
-      console.log(`Upgrading Registration ID: ${existing_reg_id} -> ${newRegId}`);
+      console.log(`Upgrading Registration ID: ${effective_reg_id} -> ${newRegId}`);
     }
 
     // SAVE TO TEMP REGISTRATION
     const reg = new TempRegistration({
       reg_id: newRegId,
-      reg_type,
+      reg_type: actual_reg_type,
       college: finalCollege, study_year,
       organization: finalOrg, designation, dci_reg_number,
       title,
@@ -395,7 +418,8 @@ router.post("/register", async (req, res) => {
       email,
       mobile,
       comments,
-      amount
+      amount,
+      existing_reg_id: effective_reg_id
     });
 
     await reg.save();
@@ -439,11 +463,20 @@ router.post("/check-status", async (req, res) => {
     }
     else if (currentType.includes("DELEGATE")) {
       const hasLunch = currentType.includes("WITH LUNCH");
-      if (!hasLunch) {
-        upgrades.push({ to: "DELEGATE(WITH LUNCH)", amount: 500, label: "Upgrade to Delegate with Lunch (+₹500)" });
+      const hasBanquet = currentType.includes("BANQUET");
+
+      if (!hasLunch && !hasBanquet) {
+        upgrades.push({ to: "DELEGATES (WITH LUNCH)", amount: 500, label: "Upgrade to Delegate with Lunch (+₹500)" });
+        upgrades.push({ to: "DELEGATES + BANQUET PASS", amount: 2000, label: "Add Banquet Pass (Includes DB ID) (+₹2,000)" });
         upgrades.push({ to: "RC MEMBER", amount: 2500, label: "Upgrade to RC Member (Includes Lunch + Banquet) (+₹2,500)" });
-      } else {
+      }
+      else if (hasLunch && !hasBanquet) {
+        upgrades.push({ to: "DELEGATES (WITH LUNCH) + BANQUET PASS", amount: 2000, label: "Add Banquet Pass (Includes DLB ID) (+₹2,000)" });
         upgrades.push({ to: "RC MEMBER", amount: 2000, label: "Upgrade to RC Member (Includes Banquet) (+₹2,000)" });
+      }
+      else if (!hasLunch && hasBanquet) {
+        upgrades.push({ to: "DELEGATES (WITH LUNCH) + BANQUET PASS", amount: 500, label: "Upgrade to Delegate with Lunch (DLB) (+₹500)" });
+        upgrades.push({ to: "RC MEMBER", amount: 500, label: "Upgrade to RC Member (Includes Lunch) (+₹500)" });
       }
     }
 
