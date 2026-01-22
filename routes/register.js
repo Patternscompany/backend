@@ -323,7 +323,7 @@ router.post("/register", async (req, res) => {
     } = req.body;
 
     // 1. DUPLICATE CHECK & AUTO-UPGRADE LOGIC
-    let actual_reg_type = reg_type;
+
     let effective_reg_id = existing_reg_id;
 
     if (!effective_reg_id) {
@@ -361,6 +361,7 @@ router.post("/register", async (req, res) => {
     }
 
     // GENERATE ID OR USE EXISTING
+    let actual_reg_type = reg_type;
     let prefix = "REG";
     const typeUpper = actual_reg_type.toUpperCase();
 
@@ -471,11 +472,9 @@ router.post("/check-status", async (req, res) => {
         upgrades.push({ to: "RC MEMBER", amount: 2500, label: "Upgrade to RC Member (Includes Lunch + Banquet) (+₹2,500)" });
       }
       else if (hasLunch && !hasBanquet) {
-        upgrades.push({ to: "DELEGATES (WITH LUNCH) + BANQUET PASS", amount: 2000, label: "Add Banquet Pass (Includes DLB ID) (+₹2,000)" });
         upgrades.push({ to: "RC MEMBER", amount: 2000, label: "Upgrade to RC Member (Includes Banquet) (+₹2,000)" });
       }
       else if (!hasLunch && hasBanquet) {
-        upgrades.push({ to: "DELEGATES (WITH LUNCH) + BANQUET PASS", amount: 500, label: "Upgrade to Delegate with Lunch (DLB) (+₹500)" });
         upgrades.push({ to: "RC MEMBER", amount: 500, label: "Upgrade to RC Member (Includes Lunch) (+₹500)" });
       }
     }
