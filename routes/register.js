@@ -11,6 +11,9 @@ const sendEmail = require("../utils/email");
 const generateRegistrationCard = require("../utils/cardGenerator");
 const saveQrToPublic = require("../utils/qrStorage");
 const sendWhatsAppTicket = require("../utils/sendWhatsApp");
+const generateCertificate = require("../utils/certificateGenerator");
+const fs = require("fs");
+const path = require("path");
 
 const crypto = require("crypto");
 
@@ -295,6 +298,83 @@ router.post("/resend-whatsapp", async (req, res) => {
     }
   } catch (error) {
     console.error("Resend WhatsApp Error:", error);
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// SEND CERTIFICATE ROUTE
+router.post("/send-certificate", async (req, res) => {
+  try {
+    const { id } = req.body;
+    if (!id) return res.json({ success: false, error: "Registration ID is required." });
+
+    const registration = await Registration.findById(id);
+    if (!registration) return res.json({ success: false, error: "Registration not found." });
+
+    // 1. Generate Certificate Image
+    const certParams = {
+      name: registration.name,
+      title: registration.title
+    };
+    const buffer = await generateCertificate(certParams);
+
+    // 2. Save to Public Dir (TEMP DIR to avoid restart/reload)
+    const os = require("os");
+    const saveDir = path.join(os.tmpdir(), "tgsdc_certificates");
+    if (!fs.existsSync(saveDir)) {
+      fs.mkdirSync(saveDir, { recursive: true });
+    }
+
+    const fileName = `CERT-${registration.reg_id}.jpg`;
+    const filePath = path.join(saveDir, fileName);
+    fs.writeFileSync(filePath, buffer);
+
+    // 3. Construct Public URL
+    const baseUrl = process.env.BASE_URL || "http://localhost:5000";
+    const publicUrl = `${baseUrl}/public/certificates/${fileName}`;
+
+    // 4. Send WhatsApp
+    let waSent = false;
+    if (sendWhatsAppTicket.sendCertificate) {
+      waSent = await sendWhatsAppTicket.sendCertificate(registration, publicUrl);
+    } else {
+      console.warn("sendWhatsAppTicket.sendCertificate is undefined");
+    }
+
+    // 5. Send Email
+    const emailHtml = `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h2>Certificate of Participation</h2>
+                <p>Dear ${registration.title} ${registration.name},</p>
+                <p>Thank you for participating in the 10th Telangana State Dental Conference.</p>
+                <p>Please find your Certificate of Participation attached below.</p>
+                <p>Best Regards,<br>TGSDC 2026 Organizing Committee</p>
+            </div>
+        `;
+
+    const emailSent = await sendEmail(
+      registration.email,
+      "Certificate of Participation - TGSDC 2026",
+      emailHtml,
+      [
+        {
+          filename: fileName,
+          content: buffer,
+          contentType: "image/jpeg"
+        }
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: "Certificate generated and sent.",
+      waStats: waSent ? "Sent" : "Failed",
+      emailStats: emailSent ? "Sent" : "Failed",
+      url: publicUrl
+    });
+
+  } catch (error) {
+    console.error("Send Certificate Error:", error);
     res.json({ success: false, error: error.message });
   }
 });

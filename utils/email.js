@@ -3,7 +3,7 @@ const nodemailer = require("nodemailer");
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT),
-    secure: true,
+    secure: parseInt(process.env.SMTP_PORT) === 465, // True for 465, false for other ports
     auth: {
         user: process.env.EMAIL_USER, // your Gmail
         pass: process.env.EMAIL_PASS, // App Password

@@ -20,6 +20,16 @@ app.use(
     }
   })
 );
+
+app.use(
+  "/public/certificates",
+  express.static(path.join(os.tmpdir(), "tgsdc_certificates"), {
+    setHeaders: (res) => {
+      res.setHeader("Content-Type", "image/jpeg");
+    }
+  })
+);
+
 // Middlewares
 app.use(cors());
 app.use(bodyParser.json());
