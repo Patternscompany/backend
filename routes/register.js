@@ -393,6 +393,10 @@ router.post("/register", async (req, res) => {
     else if (typeUpper.includes("BANQUET")) {
       prefix = "B";
     }
+    // Priority 5: TRADER
+    else if (typeUpper.includes("TRADER")) {
+      prefix = "T";
+    }
 
     let newRegId = effective_reg_id || (prefix + Date.now());
 
@@ -401,6 +405,33 @@ router.post("/register", async (req, res) => {
       const numericPart = effective_reg_id.replace(/^\D+/, ''); // Get the numeric part (e.g. from REG123, D123, RC123)
       newRegId = prefix + numericPart;
       console.log(`Upgrading Registration ID: ${effective_reg_id} -> ${newRegId}`);
+    }
+
+    // SPECIAL HANDLING FOR TRADERS (CASH PAYMENT - DIRECT SAVE)
+    if (typeUpper.includes("TRADER")) {
+      const traderReg = new Registration({
+        reg_id: newRegId,
+        reg_type: "TRADER",
+        title,
+        name,
+        email,
+        mobile,
+        organization: finalOrg, // Holds Stall Number
+        amount: 0,
+        payment_status: "Completed",
+        payment_id: "CASH-" + Date.now(),
+        order_id: "CASH-" + Date.now()
+      });
+      await traderReg.save();
+
+      // Send Email & WhatsApp (Non-blocking)
+      handleRegistrationEmails(traderReg).catch(err => console.error("Trader Email/WA Error:", err));
+
+      return res.json({
+        success: true,
+        reg_id: newRegId,
+        message: "Trader Registered Successfully"
+      });
     }
 
     // SAVE TO TEMP REGISTRATION
