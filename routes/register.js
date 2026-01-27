@@ -343,18 +343,38 @@ router.post("/send-certificate", async (req, res) => {
 
     // 5. Send Email
     const emailHtml = `
-            <div style="font-family: Arial, sans-serif; color: #333;">
-                <h2>Certificate of Participation</h2>
-                <p>Dear ${registration.title} ${registration.name},</p>
-                <p>Thank you for participating in the 10th Telangana State Dental Conference.</p>
-                <p>Please find your Certificate of Participation attached below.</p>
-                <p>Best Regards,<br>TGSDC 2026 Organizing Committee</p>
-            </div>
+            <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+    <p>Dear ${registration.name},</p>
+
+    <p>
+        On behalf of the Organizing Committee, we extend our heartfelt gratitude to all the
+        Students, Delegates, Speakers, Panelists, and Attendees for being a part of the
+        <strong>10th Telangana State Dental Conference</strong>.
+    </p>
+
+    <p>
+        We look forward to your continued support and participation in future academic
+        endeavors and conferences.
+    </p>
+
+    <p>
+        With warm regards and best wishes.
+    </p>
+
+    <p>
+        <strong>Note:</strong> <em>PLEASE DOWNLOAD YOUR PARTICIPATION CERTIFICATE</em>
+    </p>
+
+    <p>
+        Organizing Committee<br>
+        <strong>IDA CYBERABAD</strong>
+    </p>
+</div>
         `;
 
     const emailSent = await sendEmail(
       registration.email,
-      "Certificate of Participation - TGSDC 2026",
+      "Certificate of Participation - 24th & 25th TGSDC 2026",
       emailHtml,
       [
         {

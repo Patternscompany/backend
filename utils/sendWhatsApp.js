@@ -45,7 +45,7 @@ async function sendWhatsAppCertificate(regData, certUrl) {
             phoneNumber: regData.mobile,
             type: "Template",
             template: {
-                name: "tgsdc_certificate", // Assumes user creates this template
+                name: "confirmation_cert_temp", // Assumes user creates this template
                 languageCode: "en",
                 headerValues: [
                     certUrl
