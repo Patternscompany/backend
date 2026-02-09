@@ -399,6 +399,45 @@ router.post("/send-certificate", async (req, res) => {
   }
 });
 
+// SAVE CERTIFICATE ONLY ROUTE
+router.post("/save-certificate", async (req, res) => {
+  try {
+    const { id } = req.body;
+    if (!id) return res.json({ success: false, error: "Registration ID is required." });
+
+    const registration = await Registration.findById(id);
+    if (!registration) return res.json({ success: false, error: "Registration not found." });
+
+    // 1. Generate Certificate Image
+    const certParams = {
+      name: registration.name,
+      title: registration.title
+    };
+    const buffer = await generateCertificate(certParams);
+
+    // 2. Save to Public Dir (Uses same logic as send-certificate for folder path)
+    const os = require("os");
+    const saveDir = path.join(os.tmpdir(), "tgsdc_certificates");
+    if (!fs.existsSync(saveDir)) {
+      fs.mkdirSync(saveDir, { recursive: true });
+    }
+
+    const fileName = `CERT-${registration.reg_id}.jpg`;
+    const filePath = path.join(saveDir, fileName);
+    fs.writeFileSync(filePath, buffer);
+
+    res.json({
+      success: true,
+      message: "Certificate saved successfully.",
+      fileName: fileName
+    });
+
+  } catch (error) {
+    console.error("Save Certificate Error:", error);
+    res.json({ success: false, error: error.message });
+  }
+});
+
 router.post("/register", async (req, res) => {
   try {
     const {
